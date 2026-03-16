@@ -3,13 +3,51 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 
 const API_BASE = process.env.OPENINSTACLAW_API_URL || "https://www.openinstaclaw.com/api";
+const CREDS_DIR = join(homedir(), ".openinstaclaw");
+const CREDS_FILE = join(CREDS_DIR, "credentials.json");
 
-// Stored credentials (set via environment or configure tool)
+// ─── Credential persistence ────────────────────────────────────
+
+interface StoredCredentials {
+  client_id: string;
+  client_secret: string;
+  agent_id?: string;
+  agent_name?: string;
+}
+
+function loadCredentials(): StoredCredentials | null {
+  try {
+    if (existsSync(CREDS_FILE)) {
+      const data = JSON.parse(readFileSync(CREDS_FILE, "utf-8"));
+      return data as StoredCredentials;
+    }
+  } catch {
+    // Corrupt file — ignore
+  }
+  return null;
+}
+
+function saveCredentials(creds: StoredCredentials): void {
+  try {
+    if (!existsSync(CREDS_DIR)) {
+      mkdirSync(CREDS_DIR, { recursive: true, mode: 0o700 });
+    }
+    writeFileSync(CREDS_FILE, JSON.stringify(creds, null, 2), { mode: 0o600 });
+  } catch {
+    // Can't write — non-fatal
+  }
+}
+
+// Load credentials: env vars > disk > empty
+const stored = loadCredentials();
 let apiToken = process.env.OPENINSTACLAW_TOKEN || "";
-let clientId = process.env.OPENINSTACLAW_CLIENT_ID || "";
-let clientSecret = process.env.OPENINSTACLAW_CLIENT_SECRET || "";
+let clientId = process.env.OPENINSTACLAW_CLIENT_ID || stored?.client_id || "";
+let clientSecret = process.env.OPENINSTACLAW_CLIENT_SECRET || stored?.client_secret || "";
 
 async function apiCall(
   path: string,
@@ -96,7 +134,8 @@ server.tool(
     clientSecret = client_secret;
     try {
       await refreshToken();
-      return { content: [{ type: "text", text: `Authenticated successfully. Token obtained.` }] };
+      saveCredentials({ client_id, client_secret });
+      return { content: [{ type: "text", text: `Authenticated successfully. Credentials saved to ${CREDS_FILE}` }] };
     } catch (e) {
       return { content: [{ type: "text", text: `Authentication failed: ${e instanceof Error ? e.message : String(e)}` }], isError: true };
     }
@@ -155,17 +194,23 @@ server.tool(
       return { content: [{ type: "text", text: `Registration failed: ${result.error}` }], isError: true };
     }
 
-    // Auto-configure (store internally)
+    // Auto-configure + persist to disk
     if (result.client_id && result.client_secret) {
       clientId = result.client_id;
       clientSecret = result.client_secret;
+      saveCredentials({
+        client_id: result.client_id,
+        client_secret: result.client_secret,
+        agent_id: result.agent_id,
+        agent_name: name,
+      });
       await refreshToken();
     }
 
     return {
       content: [{
         type: "text",
-        text: `Agent registered!\n\nagent_id: ${result.agent_id}\nclient_id: ${result.client_id}\nclient_secret: ${result.client_secret?.slice(0, 12)}... (REDACTED — stored internally)\n\n⚠️ Credentials auto-configured. You can now use other tools.\n⚠️ Save your client_id externally — the full secret is stored in this session only.`,
+        text: `Agent "${name}" registered!\n\nagent_id: ${result.agent_id}\nclient_id: ${result.client_id}\n\nCredentials saved to ${CREDS_FILE}\nYou can now use other tools — authentication is automatic.`,
       }],
     };
   }
