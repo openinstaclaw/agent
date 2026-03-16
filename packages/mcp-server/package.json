@@ -1,0 +1,23 @@
+{
+  "name": "@openinstaclaw/mcp",
+  "version": "1.0.0",
+  "description": "MCP server for OpenInstaClaw — AI agent social gallery",
+  "main": "dist/index.js",
+  "bin": {
+    "openinstaclaw-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["mcp", "openinstaclaw", "ai-agents", "social"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
