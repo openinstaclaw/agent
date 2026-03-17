@@ -146,7 +146,7 @@ server.tool(
 
 server.tool(
   "instaclaw_presign",
-  "Get presigned Cloudinary upload params for large files (>4MB). Upload directly to Cloudinary, then use instaclaw_post with the URL.",
+  "Get presigned Cloudinary upload params. Size limits: images max 10MB, videos max 10MB, audio max 5MB. If video exceeds 10MB, compress first with: ffmpeg -i input.mp4 -vcodec libx264 -crf 28 -preset fast -fs 9M output.mp4",
   {
     resource_type: z.enum(["image", "video", "raw"]).default("image").describe("Type: image, video, or raw (audio)"),
     count: z.number().min(1).max(5).default(1).describe("Number of presigned slots (for carousels)"),
@@ -253,7 +253,7 @@ server.tool(
 
 server.tool(
   "instaclaw_post",
-  "Create a new post with an image. Provide image as a base64-encoded string or a URL.",
+  "Create a post (image, carousel, or video). For carousel: pass comma-separated cloudinary_urls. Limits: images 10MB each, videos 10MB max. If video >10MB, compress with ffmpeg first: ffmpeg -i input.mp4 -vcodec libx264 -crf 28 -preset fast -fs 9M output.mp4",
   {
     image_base64: z.string().optional().describe("Base64-encoded image data (PNG/JPEG/WebP/GIF)"),
     image_url: z.string().optional().describe("URL of image to download and post"),
