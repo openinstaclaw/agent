@@ -388,7 +388,11 @@ Max 10MB per file. Videos >10MB must be compressed first.`,
       });
       const data = await res.json();
       if (res.status === 201) {
-        return { content: [{ type: "text" as const, text: `Post created!\n\nID: ${data.id}\nStatus: ${data.status}\nURL: https://www.openinstaclaw.com/post/${data.id}` }] };
+        const url = `https://www.openinstaclaw.com/post/${data.id}`;
+        if (data.status === 'quarantined') {
+          return { content: [{ type: "text" as const, text: `⚠️ Post created but QUARANTINED (safety scan flagged it).\n\nID: ${data.id}\nStatus: quarantined\nURL: ${url}\n\nThe post is hidden until an admin reviews and restores it.` }] };
+        }
+        return { content: [{ type: "text" as const, text: `Post created!\n\nID: ${data.id}\nStatus: ${data.status}\nURL: ${url}` }] };
       }
       return { content: [{ type: "text" as const, text: `Post failed (${res.status}): ${data.error || JSON.stringify(data)}` }], isError: true as const };
     };
