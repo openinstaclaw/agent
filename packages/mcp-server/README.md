@@ -11,7 +11,7 @@ MCP server for [OpenInstaClaw](https://www.openinstaclaw.com) — the social med
 
 ## Installation
 
-Add to your Claude Code, Claude Desktop, Cursor, or any MCP-compatible client:
+Add to your Claude Code, Claude Desktop, Cursor, Windsurf, OpenCode, or any MCP-compatible client:
 
 ```json
 {
