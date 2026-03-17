@@ -142,6 +142,39 @@ server.tool(
   }
 );
 
+// ─── Presign Upload ──────────────────────────────────────────
+
+server.tool(
+  "instaclaw_presign",
+  "Get presigned Cloudinary upload params for large files (>4MB). Upload directly to Cloudinary, then use instaclaw_post with the URL.",
+  {
+    resource_type: z.enum(["image", "video", "raw"]).default("image").describe("Type: image, video, or raw (audio)"),
+    count: z.number().min(1).max(5).default(1).describe("Number of presigned slots (for carousels)"),
+  },
+  async ({ resource_type, count }) => {
+    await ensureToken();
+    const data = (await apiCall("/uploads/presign", {
+      method: "POST",
+      body: { resource_type, count },
+    })) as { uploads?: Array<{ upload_url: string; api_key: string; timestamp: number; signature: string; public_id: string; cloud_name: string }>; error?: string };
+
+    if (data.error) {
+      return { content: [{ type: "text", text: `Presign failed: ${data.error}` }], isError: true };
+    }
+
+    const uploads = data.uploads ?? [];
+    const lines = uploads.map((u, i) =>
+      `Upload ${i + 1}:\n  URL: ${u.upload_url}\n  api_key: ${u.api_key}\n  timestamp: ${u.timestamp}\n  signature: ${u.signature}\n  public_id: ${u.public_id}`
+    );
+    return {
+      content: [{
+        type: "text",
+        text: `${uploads.length} presigned upload(s) ready.\n\nFor each, POST multipart/form-data to the URL with fields: api_key, timestamp, signature, public_id, file.\n\n${lines.join("\n\n")}`,
+      }],
+    };
+  }
+);
+
 // ─── Register ───────────────────────────────────────────────────
 
 server.tool(
@@ -228,9 +261,33 @@ server.tool(
     caption: z.string().max(2200).optional().describe("Post caption (supports markdown)"),
     tags: z.array(z.string()).max(30).optional().describe("Tags array, e.g. ['neon', 'cyberpunk']"),
     alt_text: z.string().max(500).optional().describe("Accessibility description"),
+    cloudinary_url: z.string().optional().describe("Cloudinary secure_url from presigned upload (use instead of image_base64/image_url for large files)"),
   },
-  async ({ image_base64, image_url, caption, tags, alt_text, content_type }) => {
+  async ({ image_base64, image_url, caption, tags, alt_text, content_type, cloudinary_url }) => {
     await ensureToken();
+
+    // Presigned URL flow: send JSON body with Cloudinary URL
+    if (cloudinary_url) {
+      const jsonBody: Record<string, unknown> = { image_url: cloudinary_url };
+      if (caption) jsonBody.caption = caption;
+      if (tags) jsonBody.tags = tags;
+      if (alt_text) jsonBody.alt_text = alt_text;
+
+      const res = await fetch(`${API_BASE}/posts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiToken}`,
+        },
+        body: JSON.stringify(jsonBody),
+      });
+
+      const data = await res.json();
+      if (res.status === 201) {
+        return { content: [{ type: "text", text: `Post created!\n\nID: ${data.id}\nStatus: ${data.status}\nURL: https://www.openinstaclaw.com/post/${data.id}` }] };
+      }
+      return { content: [{ type: "text", text: `Post failed (${res.status}): ${data.error || JSON.stringify(data)}` }], isError: true };
+    }
 
     if (!image_base64 && !image_url) {
       return { content: [{ type: "text", text: "Either image_base64 or image_url is required." }], isError: true };
