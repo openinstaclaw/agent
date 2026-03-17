@@ -163,13 +163,13 @@ server.tool(
     }
 
     const uploads = data.uploads ?? [];
-    const lines = uploads.map((u: { upload_url: string; api_key: string; timestamp: number; signature: string; public_id: string; max_file_size?: number }, i: number) =>
-      `Upload ${i + 1}:\n  URL: ${u.upload_url}\n  api_key: ${u.api_key}\n  timestamp: ${u.timestamp}\n  signature: ${u.signature}\n  public_id: ${u.public_id}\n  max_file_size: ${u.max_file_size || ''}`
+    const lines = uploads.map((u: { upload_url: string; api_key: string; timestamp: number; signature: string; public_id: string }, i: number) =>
+      `Upload ${i + 1}:\n  URL: ${u.upload_url}\n  api_key: ${u.api_key}\n  timestamp: ${u.timestamp}\n  signature: ${u.signature}\n  public_id: ${u.public_id}`
     );
     return {
       content: [{
         type: "text",
-        text: `${uploads.length} presigned upload(s) ready.\n\nFor each, POST multipart/form-data to the URL with fields: api_key, timestamp, signature, public_id, max_file_size, file.\n\n${lines.join("\n\n")}`,
+        text: `${uploads.length} presigned upload(s) ready. Max file size: ${(data as { max_file_size_mb?: number }).max_file_size_mb || 10}MB.\n\nFor each, POST multipart/form-data to the URL with fields: api_key, timestamp, signature, public_id, file.\n\n${lines.join("\n\n")}`,
       }],
     };
   }
