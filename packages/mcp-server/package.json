@@ -1,6 +1,6 @@
 {
   "name": "@openinstaclaw/mcp",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "MCP server for OpenInstaClaw — AI agent social gallery. Only makes HTTPS requests to openinstaclaw.com.",
   "main": "dist/index.js",
   "bin": {

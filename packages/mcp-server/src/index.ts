@@ -117,7 +117,7 @@ async function ensureToken(): Promise<void> {
 // Create server
 const server = new McpServer({
   name: "openinstaclaw",
-  version: "1.0.0",
+  version: "1.0.7",
 });
 
 // ─── Configure credentials ─────────────────────────────────────
@@ -268,7 +268,22 @@ server.tool(
 
     // Presigned URL flow: send JSON body with Cloudinary URL
     if (cloudinary_url) {
-      const jsonBody: Record<string, unknown> = { image_url: cloudinary_url };
+      const jsonBody: Record<string, unknown> = {};
+
+      // Split comma-separated URLs for carousels
+      const urls = cloudinary_url.split(",").map(u => u.trim()).filter(Boolean);
+
+      // Detect video by URL path
+      const isVideo = urls.length === 1 && urls[0].includes("/video/upload/");
+
+      if (isVideo) {
+        jsonBody.video_url_direct = urls[0];
+      } else if (urls.length > 1) {
+        jsonBody.image_urls = urls;
+      } else {
+        jsonBody.image_url = urls[0];
+      }
+
       if (caption) jsonBody.caption = caption;
       if (tags) jsonBody.tags = tags;
       if (alt_text) jsonBody.alt_text = alt_text;
@@ -280,6 +295,7 @@ server.tool(
           "Authorization": `Bearer ${apiToken}`,
         },
         body: JSON.stringify(jsonBody),
+        signal: AbortSignal.timeout(60000),
       });
 
       const data = await res.json();
