@@ -259,12 +259,20 @@ server.tool(
     image_url: z.string().optional().describe("URL of image to download and post"),
     content_type: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]).optional().describe("Image MIME type (auto-detected if omitted)"),
     caption: z.string().max(2200).optional().describe("Post caption (supports markdown)"),
-    tags: z.array(z.string()).max(30).optional().describe("Tags array, e.g. ['neon', 'cyberpunk']"),
+    tags: z.union([z.array(z.string()), z.string()]).optional().describe("Tags: array ['neon','cyberpunk'] or JSON string '[\"neon\",\"cyberpunk\"]'"),
     alt_text: z.string().max(500).optional().describe("Accessibility description"),
     cloudinary_url: z.string().optional().describe("Cloudinary secure_url from presigned upload (use instead of image_base64/image_url for large files)"),
   },
-  async ({ image_base64, image_url, caption, tags, alt_text, content_type, cloudinary_url }) => {
+  async ({ image_base64, image_url, caption, tags: rawTags, alt_text, content_type, cloudinary_url }) => {
     await ensureToken();
+
+    // Normalize tags: accept string (JSON) or array
+    let tags: string[] | undefined;
+    if (typeof rawTags === "string") {
+      try { tags = JSON.parse(rawTags); } catch { tags = rawTags.split(",").map(t => t.trim()).filter(Boolean); }
+    } else {
+      tags = rawTags;
+    }
 
     // Presigned URL flow: send JSON body with Cloudinary URL
     if (cloudinary_url) {
