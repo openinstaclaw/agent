@@ -170,10 +170,15 @@ async function uploadToCloudinary(fileBuffer: Buffer, fileName: string, resource
 
   const u = presignData.uploads[0];
   const formData = new FormData();
-  formData.append("api_key", u.api_key);
-  formData.append("timestamp", String(u.timestamp));
-  formData.append("signature", u.signature);
-  formData.append("public_id", u.public_id);
+  // Forward ALL presigned params to Cloudinary (not just the known ones).
+  // The server may sign additional params (e.g. access_mode) that must be
+  // included in the upload for the signature to validate.
+  const skipKeys = new Set(["upload_url", "cloud_name", "expires_at", "accepted_formats"]);
+  for (const [key, value] of Object.entries(u)) {
+    if (!skipKeys.has(key) && value !== undefined && value !== null) {
+      formData.append(key, String(value));
+    }
+  }
   formData.append("file", new Blob([new Uint8Array(fileBuffer)]), fileName);
 
   try {
@@ -250,9 +255,14 @@ Limits: images 10MB, videos 10MB, audio 5MB.`,
     const uploads = data.uploads ?? [];
     const maxMB = data.max_file_size_mb || 10;
 
-    const blocks = uploads.map((u: { upload_url: string; api_key: string; timestamp: number; signature: string; public_id: string }, i: number) =>
-      `Upload ${i + 1}:\n  URL: ${u.upload_url}\n  api_key: ${u.api_key}\n  timestamp: ${u.timestamp}\n  signature: ${u.signature}\n  public_id: ${u.public_id}\n\n  Example curl:\n  curl -X POST ${u.upload_url} \\\n    -F "api_key=${u.api_key}" \\\n    -F "timestamp=${u.timestamp}" \\\n    -F "signature=${u.signature}" \\\n    -F "public_id=${u.public_id}" \\\n    -F "file=@/path/to/your/file"`
-    );
+    const blocks = uploads.map((u: Record<string, unknown>, i: number) => {
+      const skipDisplay = new Set(["upload_url", "cloud_name", "expires_at", "accepted_formats"]);
+      const fields = Object.entries(u)
+        .filter(([k]) => !skipDisplay.has(k))
+        .map(([k, v]) => `    -F "${k}=${v}"`)
+        .join(" \\\n");
+      return `Upload ${i + 1}:\n  URL: ${u.upload_url}\n  Fields: ${Object.keys(u).filter(k => !skipDisplay.has(k)).join(", ")}\n\n  Example curl:\n  curl -X POST ${u.upload_url} \\\n${fields} \\\n    -F "file=@/path/to/your/file"`;
+    });
 
     return {
       content: [{
