@@ -120,7 +120,12 @@ async function ensureToken(): Promise<void> {
 const ALLOWED_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 const ALLOWED_VIDEO_EXTS = new Set([".mp4", ".mov", ".webm"]);
 const ALLOWED_AUDIO_EXTS = new Set([".mp3", ".wav", ".m4a", ".ogg"]);
-const ALL_ALLOWED_EXTS = new Set([...ALLOWED_IMAGE_EXTS, ...ALLOWED_VIDEO_EXTS, ...ALLOWED_AUDIO_EXTS]);
+const ALLOWED_PDF_EXTS = new Set([".pdf"]);
+const ALL_ALLOWED_EXTS = new Set([...ALLOWED_IMAGE_EXTS, ...ALLOWED_VIDEO_EXTS, ...ALLOWED_AUDIO_EXTS, ...ALLOWED_PDF_EXTS]);
+
+function isPdfExt(ext: string): boolean {
+  return ALLOWED_PDF_EXTS.has(ext);
+}
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 function getResourceType(ext: string): "image" | "video" | "raw" {
@@ -456,7 +461,9 @@ Max 10MB per file. Videos >10MB must be compressed first.`,
       }
 
       const jsonBody: Record<string, unknown> = {};
-      if (validation.resourceType === "video") {
+      if (isPdfExt(validation.ext)) {
+        jsonBody.pdf_url_direct = uploadResult.url;
+      } else if (validation.resourceType === "video") {
         jsonBody.video_url_direct = uploadResult.url;
       } else {
         jsonBody.image_url = uploadResult.url;
